@@ -67,7 +67,7 @@ at [`docs/security-checklist.md`](./docs/security-checklist.md).
 Highlights:
 
 - Strict same-origin check on `/api/subscribe`
-- In-process rate limit (3 / IP / hour)
+- In-process rate limit (10 / IP / hour)
 - Honeypot + 3-second timestamp anti-bot
 - 1 KB request payload cap
 - CSP, HSTS (production), X-Frame-Options DENY, X-Content-Type-Options

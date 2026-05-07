@@ -26,7 +26,7 @@ Status legend:
 
 | Item | Status | Detail |
 | --- | --- | --- |
-| Rate limit: 3 req / IP / hour | ⚠️ | Implemented via in-process sliding-window `Map`. **Caveat:** Vercel serverless instances are ephemeral and not shared, so this is best-effort and bypassable by an attacker who can land on cold-started or different instances. Returns HTTP 429 |
+| Rate limit: 10 req / IP / hour | ⚠️ | Implemented via in-process sliding-window `Map`. **Caveat:** Vercel serverless instances are ephemeral and not shared, so this is best-effort and bypassable by an attacker who can land on cold-started or different instances. Returns HTTP 429. Limit raised from 3 → 10 to accommodate NATted IPs (e.g. shared job-site wifi where multiple legit customers share one external IP) |
 | Server-side email validation | ✅ | `^[^\s@]+@[^\s@]+\.[^\s@]+$` regex applied after origin/payload/rate gates. Mailchimp is the second line of defense |
 | `firstName` length cap (50) + sanitize | ✅ | `.trim().slice(0, 50).replace(/[\x00-\x1f<>|]/g, "")` — strips control chars, angle brackets, and `\|` (Mailchimp merge-tag delimiter) |
 | `language` whitelist | ✅ | Only `"es"` or `"en"` accepted; anything else falls back to default `"es"` |

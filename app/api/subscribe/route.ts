@@ -5,7 +5,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 type SubscribeLang = "es" | "en";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const RATE_LIMIT_MAX = 3;
+const RATE_LIMIT_MAX = 10;
 const PAYLOAD_LIMIT_BYTES = 1024;
 const MIN_FORM_FILL_MS = 3000;
 const FIRSTNAME_MAX = 50;
