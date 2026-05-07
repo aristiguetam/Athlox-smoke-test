@@ -5,7 +5,7 @@ subscribe API now sends `merge_fields: { LANGUAGE }`, so if the merge field
 doesn't exist yet every signup will fail with `Your merge fields were invalid`
 and the form will show the generic error.
 
-Audience: `b2782f2db9` · Server: `us6`
+Audience: `<your-audience-id>` · Server: `<your-server-prefix>`
 
 ---
 

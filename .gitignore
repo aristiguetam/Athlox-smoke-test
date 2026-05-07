@@ -41,6 +41,9 @@ yarn-error.log*
 .claude/
 skills-lock.json
 
+# agent / product research (kept local, not pushed)
+.agents/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
