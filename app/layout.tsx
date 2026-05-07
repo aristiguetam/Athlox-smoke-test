@@ -18,10 +18,28 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const SITE_TITLE = "Sun protection — built for the job site";
+const SITE_DESCRIPTION =
+  "Daily sun protection for men who work outside. Takes 30 seconds. No steps. Pocket-sized.";
+
 export const metadata: Metadata = {
-  title: "Sun protection — built for the job site",
-  description:
-    "Daily sun protection for men who work outside. Takes 30 seconds. No steps. Pocket-sized.",
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: "ATHLOX",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
