@@ -1,8 +1,24 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 type Lang = "es" | "en";
+
+// Detect browser language without setState-in-effect cascading renders.
+// useSyncExternalStore handles SSR/hydration: server returns "es", client
+// reads navigator.language on first render after hydration.
+const subscribeNoop = () => () => {};
+const getDetectedLang = (): Lang => {
+  if (typeof navigator === "undefined") return "es";
+  return (navigator.language || "").toLowerCase().startsWith("en") ? "en" : "es";
+};
+const getServerLang = (): Lang => "es";
 
 const T = {
   es: {
@@ -100,22 +116,22 @@ const T = {
 type FormError = "already" | "generic" | null;
 
 export default function Page() {
-  const [lang, setLang] = useState<Lang>("es");
+  const detectedLang = useSyncExternalStore(
+    subscribeNoop,
+    getDetectedLang,
+    getServerLang,
+  );
+  const [userLang, setUserLang] = useState<Lang | null>(null);
+  const lang: Lang = userLang ?? detectedLang;
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<FormError>(null);
   const [honeypot, setHoneypot] = useState("");
-  const [loadedAt, setLoadedAt] = useState<number | null>(null);
+  const loadedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setLoadedAt(Date.now());
-  }, []);
-
-  useEffect(() => {
-    if (typeof navigator === "undefined") return;
-    const browserLang = (navigator.language || "").toLowerCase();
-    setLang(browserLang.startsWith("en") ? "en" : "es");
+    loadedAtRef.current = Date.now();
   }, []);
 
   useEffect(() => {
@@ -139,7 +155,7 @@ export default function Page() {
           language: lang,
           firstName: "",
           company: honeypot,
-          loadedAt,
+          loadedAt: loadedAtRef.current,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -197,7 +213,7 @@ export default function Page() {
 
         <button
           type="button"
-          onClick={() => setLang(lang === "es" ? "en" : "es")}
+          onClick={() => setUserLang(lang === "es" ? "en" : "es")}
           aria-label={c.aria.toggle}
           className="group flex items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] p-1 backdrop-blur-sm transition-colors hover:border-white/30"
           style={{ fontFamily: "var(--font-mono), monospace" }}

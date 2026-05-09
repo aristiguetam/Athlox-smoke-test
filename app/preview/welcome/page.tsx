@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 type Lang = "es" | "en";
@@ -114,13 +115,13 @@ export default function PreviewWelcome() {
       <div className="relative z-10 mx-auto max-w-3xl px-5 pb-24 pt-8 sm:px-10 sm:pt-12">
         {/* Top row */}
         <div className="mb-12 flex items-center justify-between gap-4">
-          <a
+          <Link
             href="/"
             className="font-mono text-[11px] tracking-[0.28em] text-white/55 transition-colors hover:text-white"
             style={{ fontFamily: "var(--font-mono), monospace" }}
           >
             {e.copy.back}
-          </a>
+          </Link>
           <button
             type="button"
             onClick={() => setLang(lang === "es" ? "en" : "es")}

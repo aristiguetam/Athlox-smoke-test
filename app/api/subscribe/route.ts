@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,41 @@ function sanitizeFirstName(raw: string): string {
 
 const generic = (status = 500) =>
   Response.json({ error: "something went wrong" }, { status });
+
+async function fireMetaLeadEvent(email: string): Promise<void> {
+  const pixelId = process.env.META_PIXEL_ID;
+  const token = process.env.META_CAPI_TOKEN;
+  if (!pixelId || !token) return;
+
+  const hashedEmail = createHash("sha256")
+    .update(email.toLowerCase().trim())
+    .digest("hex");
+
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  try {
+    await fetch(`https://graph.facebook.com/v21.0/${pixelId}/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        data: [
+          {
+            event_name: "Lead",
+            event_time: Math.floor(Date.now() / 1000),
+            action_source: "website",
+            event_source_url: siteUrl,
+            user_data: { em: [hashedEmail] },
+          },
+        ],
+        access_token: token,
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    // CAPI failure or timeout must not block the subscription response
+  }
+}
 
 export async function POST(request: Request) {
   // 1. Same-origin check — reject anything not from our own page
@@ -143,6 +180,7 @@ export async function POST(request: Request) {
   }
 
   if (res.status === 200 || res.status === 204) {
+    await fireMetaLeadEvent(email);
     return Response.json({ success: true });
   }
 
