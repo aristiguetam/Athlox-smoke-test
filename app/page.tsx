@@ -62,11 +62,16 @@ const T = {
       kicker: "ACCESO ANTICIPADO",
       label: "Tu correo electrónico",
       placeholder: "tu@correo.com",
+      firstNameLabel: "Tu nombre",
+      firstNamePlaceholder: "¿Cómo te llamas?",
+      phoneLabel: "Tu teléfono (opcional)",
+      phonePlaceholder: "+1 (305) 000-0000",
       cta: "AVÍSAME",
       ctaLoading: "ENVIANDO…",
       thanks: "¡Listo! Te avisamos cuando esté disponible.",
+      thanksAlready: "¡Ya estás en la lista! Gracias — te avisamos cuando esté disponible.",
       thanksKicker: "RECIBIDO",
-      errAlready: "Ya estás en la lista.",
+      errFirstName: "Por favor ingresa tu nombre.",
       errGeneric: "Algo salió mal. Intenta de nuevo.",
     },
     footer: "Sé el primero en saber",
@@ -107,11 +112,16 @@ const T = {
       kicker: "EARLY ACCESS",
       label: "Your email address",
       placeholder: "you@email.com",
+      firstNameLabel: "Your first name",
+      firstNamePlaceholder: "What's your name?",
+      phoneLabel: "Your phone (optional)",
+      phonePlaceholder: "+1 (305) 000-0000",
       cta: "NOTIFY ME",
       ctaLoading: "SENDING…",
       thanks: "You're in! We'll let you know when it's ready.",
+      thanksAlready: "You're already on the list! Thanks — we'll let you know when it's ready.",
       thanksKicker: "RECEIVED",
-      errAlready: "You're already on the list.",
+      errFirstName: "Please enter your first name.",
       errGeneric: "Something went wrong. Please try again.",
     },
     footer: "Be the first to know",
@@ -119,7 +129,8 @@ const T = {
   },
 } as const;
 
-type FormError = "already" | "generic" | null;
+type FormError = "generic" | null;
+type Submitted = "new" | "already" | null;
 
 export default function Page() {
   const detectedLang = useSyncExternalStore(
@@ -130,7 +141,10 @@ export default function Page() {
   const [userLang, setUserLang] = useState<Lang | null>(null);
   const lang: Lang = userLang ?? detectedLang;
   const [email, setEmail] = useState("");
-  const [submitted, setSubmitted] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [firstNameError, setFirstNameError] = useState(false);
+  const [submitted, setSubmitted] = useState<Submitted>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<FormError>(null);
   const [honeypot, setHoneypot] = useState("");
@@ -152,6 +166,30 @@ export default function Page() {
     if (!value || loading) return;
     setLoading(true);
     setError(null);
+
+    if (!firstName.trim()) {
+      setFirstNameError(true);
+      setLoading(false);
+      return;
+    }
+    setFirstNameError(false);
+
+    const getCookie = (name: string): string | null => {
+      for (const part of document.cookie.split(";")) {
+        const [k, ...rest] = part.trim().split("=");
+        if (k === name) return rest.join("=") || null;
+      }
+      return null;
+    };
+    const fbp = getCookie("_fbp");
+    let fbc = getCookie("_fbc");
+    if (!fbc) {
+      const fbclid = new URLSearchParams(window.location.search).get("fbclid");
+      if (fbclid) {
+        fbc = `fb.1.${Math.floor(Date.now() / 1000)}.${fbclid}`;
+      }
+    }
+
     const eventId =
       typeof crypto !== "undefined" && "randomUUID" in crypto
         ? crypto.randomUUID()
@@ -163,10 +201,13 @@ export default function Page() {
         body: JSON.stringify({
           email: value,
           language: lang,
-          firstName: "",
+          firstName: firstName.trim(),
+          phone: phone.trim(),
           company: honeypot,
           loadedAt: loadedAtRef.current,
           eventId,
+          fbp,
+          fbc,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -174,12 +215,12 @@ export default function Page() {
         error?: string;
       };
       if (data.success) {
-        setSubmitted(true);
+        setSubmitted("new");
         if (typeof window !== "undefined" && typeof window.fbq === "function") {
           window.fbq("track", "Lead", {}, { eventID: eventId });
         }
       } else if (data.error === "already subscribed") {
-        setError("already");
+        setSubmitted("already");
       } else {
         setError("generic");
       }
@@ -347,7 +388,7 @@ export default function Page() {
               <>
                 <form
                   onSubmit={onSubmit}
-                  className="flex flex-col gap-3 sm:flex-row sm:items-stretch"
+                  className="flex flex-col gap-3"
                   noValidate={false}
                   aria-busy={loading}
                 >
@@ -366,6 +407,44 @@ export default function Page() {
                       onChange={(e) => setHoneypot(e.target.value)}
                     />
                   </div>
+                  <label htmlFor="firstName" className="sr-only">
+                    {c.form.firstNameLabel}
+                  </label>
+                  <input
+                    id="firstName"
+                    name="firstName"
+                    type="text"
+                    required
+                    autoComplete="given-name"
+                    disabled={loading}
+                    placeholder={c.form.firstNamePlaceholder}
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value);
+                      if (firstNameError) setFirstNameError(false);
+                    }}
+                    aria-invalid={firstNameError || undefined}
+                    aria-describedby={
+                      firstNameError ? "firstName-error" : undefined
+                    }
+                    className={`border-2 ${
+                      firstNameError ? "border-[#f97316]/60" : "border-white/20"
+                    } bg-transparent px-4 py-4 text-lg text-white placeholder-white/30 outline-none transition-colors focus:border-[#f97316] disabled:opacity-50 sm:text-xl`}
+                  />
+                  {firstNameError && (
+                    <div
+                      id="firstName-error"
+                      role="alert"
+                      aria-live="polite"
+                      className="flex items-center gap-3 border border-[#f97316]/40 bg-[#f97316]/[0.06] px-4 py-3 text-sm text-[#f97316] sm:text-base"
+                    >
+                      <span
+                        aria-hidden
+                        className="inline-block h-2 w-2 shrink-0 bg-[#f97316]"
+                      />
+                      <span>{c.form.errFirstName}</span>
+                    </div>
+                  )}
                   <label htmlFor="email" className="sr-only">
                     {c.form.label}
                   </label>
@@ -383,7 +462,22 @@ export default function Page() {
                       setEmail(e.target.value);
                       if (error) setError(null);
                     }}
-                    className="flex-1 border-2 border-white/20 bg-transparent px-4 py-4 text-lg text-white placeholder-white/30 outline-none transition-colors focus:border-[#f97316] disabled:opacity-50 sm:text-xl"
+                    className="border-2 border-white/20 bg-transparent px-4 py-4 text-lg text-white placeholder-white/30 outline-none transition-colors focus:border-[#f97316] disabled:opacity-50 sm:text-xl"
+                  />
+                  <label htmlFor="phone" className="sr-only">
+                    {c.form.phoneLabel}
+                  </label>
+                  <input
+                    id="phone"
+                    name="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    inputMode="tel"
+                    disabled={loading}
+                    placeholder={c.form.phonePlaceholder}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="border-2 border-white/20 bg-transparent px-4 py-4 text-lg text-white placeholder-white/30 outline-none transition-colors focus:border-[#f97316] disabled:opacity-50 sm:text-xl"
                   />
                   <button
                     type="submit"
@@ -425,9 +519,7 @@ export default function Page() {
                       aria-hidden
                       className="inline-block h-2 w-2 shrink-0 bg-[#f97316]"
                     />
-                    <span>
-                      {error === "already" ? c.form.errAlready : c.form.errGeneric}
-                    </span>
+                    <span>{c.form.errGeneric}</span>
                   </div>
                 )}
               </>
@@ -443,7 +535,7 @@ export default function Page() {
                     fontFamily: "var(--font-display), 'Arial Black', sans-serif",
                   }}
                 >
-                  {c.form.thanks}
+                  {submitted === "already" ? c.form.thanksAlready : c.form.thanks}
                 </div>
               </div>
             )}

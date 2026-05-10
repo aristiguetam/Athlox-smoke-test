@@ -72,6 +72,10 @@ async function fireMetaLeadEvent(
   email: string,
   req: Request,
   eventId: string | null,
+  clientFbp?: string | null,
+  clientFbc?: string | null,
+  firstName?: string,
+  phone?: string,
 ): Promise<void> {
   const pixelId =
     process.env.NEXT_PUBLIC_META_PIXEL_ID ?? process.env.META_PIXEL_ID;
@@ -90,10 +94,28 @@ async function fireMetaLeadEvent(
   if (ip && ip !== "unknown") userData.client_ip_address = ip;
   const ua = req.headers.get("user-agent");
   if (ua) userData.client_user_agent = ua;
-  const fbp = readCookie(req, "_fbp");
+  const fbp = readCookie(req, "_fbp") ?? clientFbp ?? undefined;
+  const fbc = readCookie(req, "_fbc") ?? clientFbc ?? undefined;
   if (fbp) userData.fbp = fbp;
-  const fbc = readCookie(req, "_fbc");
   if (fbc) userData.fbc = fbc;
+
+  if (firstName?.trim()) {
+    userData.fn = [
+      createHash("sha256")
+        .update(firstName.toLowerCase().trim())
+        .digest("hex"),
+    ];
+  }
+
+  if (phone?.trim()) {
+    const digits = phone.replace(/\D/g, "");
+    const normalized = digits.length === 10 ? "1" + digits : digits;
+    if (normalized.length >= 10) {
+      userData.ph = [
+        createHash("sha256").update(normalized).digest("hex"),
+      ];
+    }
+  }
 
   const event: Record<string, unknown> = {
     event_name: "Lead",
@@ -135,9 +157,12 @@ export async function POST(request: Request) {
   let email = "";
   let language: SubscribeLang = "es";
   let firstName = "";
+  let phone = "";
   let honeypot = "";
   let loadedAt: number | null = null;
   let eventId: string | null = null;
+  let clientFbp: string | null = null;
+  let clientFbc: string | null = null;
   try {
     const raw = await request.text();
     if (raw.length > PAYLOAD_LIMIT_BYTES) return generic(413);
@@ -145,9 +170,12 @@ export async function POST(request: Request) {
       email?: unknown;
       language?: unknown;
       firstName?: unknown;
+      phone?: unknown;
       company?: unknown;
       loadedAt?: unknown;
       eventId?: unknown;
+      fbp?: unknown;
+      fbc?: unknown;
     };
     if (typeof body?.email === "string") email = body.email.trim();
     if (body?.language === "en" || body?.language === "es") {
@@ -156,12 +184,21 @@ export async function POST(request: Request) {
     if (typeof body?.firstName === "string") {
       firstName = sanitizeFirstName(body.firstName);
     }
+    if (typeof body?.phone === "string") {
+      phone = body.phone.trim().slice(0, 20);
+    }
     if (typeof body?.company === "string") honeypot = body.company;
     if (typeof body?.loadedAt === "number" && Number.isFinite(body.loadedAt)) {
       loadedAt = body.loadedAt;
     }
     if (typeof body?.eventId === "string" && body.eventId.length <= 100) {
       eventId = body.eventId;
+    }
+    if (typeof body?.fbp === "string" && body.fbp.length <= 200) {
+      clientFbp = body.fbp;
+    }
+    if (typeof body?.fbc === "string" && body.fbc.length <= 200) {
+      clientFbc = body.fbc;
     }
   } catch {
     return generic(400);
@@ -191,6 +228,7 @@ export async function POST(request: Request) {
 
   const mergeFields: Record<string, string> = { LANGUAGE: language };
   if (firstName) mergeFields.FNAME = firstName;
+  if (phone) mergeFields.PHONE = phone;
 
   let res: Response;
   try {
@@ -211,7 +249,15 @@ export async function POST(request: Request) {
   }
 
   if (res.status === 200 || res.status === 204) {
-    await fireMetaLeadEvent(email, request, eventId);
+    await fireMetaLeadEvent(
+      email,
+      request,
+      eventId,
+      clientFbp,
+      clientFbc,
+      firstName,
+      phone,
+    );
     return Response.json({ success: true });
   }
 
