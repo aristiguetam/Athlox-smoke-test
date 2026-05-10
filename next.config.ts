@@ -11,7 +11,9 @@ const cspDirectives = [
   // 'unsafe-inline' for Next.js-injected boot scripts; 'unsafe-eval' only in
   // dev for Turbopack/HMR. Production drops 'unsafe-eval'.
   // connect.facebook.net hosts the Meta Pixel base script (fbevents.js).
-  `script-src 'self' 'unsafe-inline' https://connect.facebook.net${isProd ? "" : " 'unsafe-eval'"}`,
+  // www.facebook.com hosts signals/iwl.js (Initial Web Loader) which
+  // fbevents.js pulls in for newer pixel features.
+  `script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.facebook.com${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
   // www.facebook.com hosts the 1x1 tracking pixel (noscript fallback +
   // fbq image-beacon path on browsers without sendBeacon).
