@@ -8,6 +8,12 @@ import {
   type FormEvent,
 } from "react";
 
+declare global {
+  interface Window {
+    fbq?: (...args: unknown[]) => void;
+  }
+}
+
 type Lang = "es" | "en";
 
 // Detect browser language without setState-in-effect cascading renders.
@@ -146,6 +152,10 @@ export default function Page() {
     if (!value || loading) return;
     setLoading(true);
     setError(null);
+    const eventId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     try {
       const res = await fetch("/api/subscribe", {
         method: "POST",
@@ -156,6 +166,7 @@ export default function Page() {
           firstName: "",
           company: honeypot,
           loadedAt: loadedAtRef.current,
+          eventId,
         }),
       });
       const data = (await res.json().catch(() => ({}))) as {
@@ -164,6 +175,9 @@ export default function Page() {
       };
       if (data.success) {
         setSubmitted(true);
+        if (typeof window !== "undefined" && typeof window.fbq === "function") {
+          window.fbq("track", "Lead", {}, { eventID: eventId });
+        }
       } else if (data.error === "already subscribed") {
         setError("already");
       } else {

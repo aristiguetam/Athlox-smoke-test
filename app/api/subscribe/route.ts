@@ -58,8 +58,23 @@ function sanitizeFirstName(raw: string): string {
 const generic = (status = 500) =>
   Response.json({ error: "something went wrong" }, { status });
 
-async function fireMetaLeadEvent(email: string): Promise<void> {
-  const pixelId = process.env.META_PIXEL_ID;
+function readCookie(req: Request, name: string): string | null {
+  const header = req.headers.get("cookie");
+  if (!header) return null;
+  for (const part of header.split(";")) {
+    const [k, ...rest] = part.trim().split("=");
+    if (k === name) return rest.join("=") || null;
+  }
+  return null;
+}
+
+async function fireMetaLeadEvent(
+  email: string,
+  req: Request,
+  eventId: string | null,
+): Promise<void> {
+  const pixelId =
+    process.env.NEXT_PUBLIC_META_PIXEL_ID ?? process.env.META_PIXEL_ID;
   const token = process.env.META_CAPI_TOKEN;
   if (!pixelId || !token) return;
 
@@ -70,20 +85,31 @@ async function fireMetaLeadEvent(email: string): Promise<void> {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
+  const userData: Record<string, unknown> = { em: [hashedEmail] };
+  const ip = getClientIp(req);
+  if (ip && ip !== "unknown") userData.client_ip_address = ip;
+  const ua = req.headers.get("user-agent");
+  if (ua) userData.client_user_agent = ua;
+  const fbp = readCookie(req, "_fbp");
+  if (fbp) userData.fbp = fbp;
+  const fbc = readCookie(req, "_fbc");
+  if (fbc) userData.fbc = fbc;
+
+  const event: Record<string, unknown> = {
+    event_name: "Lead",
+    event_time: Math.floor(Date.now() / 1000),
+    action_source: "website",
+    event_source_url: siteUrl,
+    user_data: userData,
+  };
+  if (eventId) event.event_id = eventId;
+
   try {
     await fetch(`https://graph.facebook.com/v21.0/${pixelId}/events`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        data: [
-          {
-            event_name: "Lead",
-            event_time: Math.floor(Date.now() / 1000),
-            action_source: "website",
-            event_source_url: siteUrl,
-            user_data: { em: [hashedEmail] },
-          },
-        ],
+        data: [event],
         access_token: token,
       }),
       signal: AbortSignal.timeout(5000),
@@ -111,6 +137,7 @@ export async function POST(request: Request) {
   let firstName = "";
   let honeypot = "";
   let loadedAt: number | null = null;
+  let eventId: string | null = null;
   try {
     const raw = await request.text();
     if (raw.length > PAYLOAD_LIMIT_BYTES) return generic(413);
@@ -120,6 +147,7 @@ export async function POST(request: Request) {
       firstName?: unknown;
       company?: unknown;
       loadedAt?: unknown;
+      eventId?: unknown;
     };
     if (typeof body?.email === "string") email = body.email.trim();
     if (body?.language === "en" || body?.language === "es") {
@@ -131,6 +159,9 @@ export async function POST(request: Request) {
     if (typeof body?.company === "string") honeypot = body.company;
     if (typeof body?.loadedAt === "number" && Number.isFinite(body.loadedAt)) {
       loadedAt = body.loadedAt;
+    }
+    if (typeof body?.eventId === "string" && body.eventId.length <= 100) {
+      eventId = body.eventId;
     }
   } catch {
     return generic(400);
@@ -180,7 +211,7 @@ export async function POST(request: Request) {
   }
 
   if (res.status === 200 || res.status === 204) {
-    await fireMetaLeadEvent(email);
+    await fireMetaLeadEvent(email, request, eventId);
     return Response.json({ success: true });
   }
 
