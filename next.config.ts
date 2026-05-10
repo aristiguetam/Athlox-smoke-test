@@ -10,13 +10,17 @@ const cspDirectives = [
   "default-src 'self'",
   // 'unsafe-inline' for Next.js-injected boot scripts; 'unsafe-eval' only in
   // dev for Turbopack/HMR. Production drops 'unsafe-eval'.
-  `script-src 'self' 'unsafe-inline'${isProd ? "" : " 'unsafe-eval'"}`,
+  // connect.facebook.net hosts the Meta Pixel base script (fbevents.js).
+  `script-src 'self' 'unsafe-inline' https://connect.facebook.net${isProd ? "" : " 'unsafe-eval'"}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
+  // www.facebook.com hosts the 1x1 tracking pixel (noscript fallback +
+  // fbq image-beacon path on browsers without sendBeacon).
+  "img-src 'self' data: https://www.facebook.com",
   "font-src 'self' data:",
-  // Browser only ever talks back to our own /api/* — Mailchimp is called
-  // server-side. Dev needs ws/wss for HMR.
-  `connect-src 'self'${isProd ? "" : " ws: wss:"}`,
+  // Browser-side fetches: our own /api/*, plus Meta Pixel beacons to
+  // *.facebook.com and connect.facebook.net. Mailchimp/CAPI are server-side.
+  // Dev needs ws/wss for HMR.
+  `connect-src 'self' https://*.facebook.com https://connect.facebook.net${isProd ? "" : " ws: wss:"}`,
   "frame-ancestors 'none'",
   "frame-src 'none'",
   "base-uri 'self'",
